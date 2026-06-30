@@ -30,11 +30,9 @@ New records are temporarily cached in your browser's local persistent storage (l
 Syncing: Upon returning to the office, load your Master_Database.csv, and the tool will prompt you to automatically merge your queued, offline records into the master file.
 
 🚀 Getting Started
-Clone the Repository:
 
-Bash
-git clone https://github.com/your-username/secure-identity-vault.git
-Open the Tool: Simply open index.html in any modern web browser (Chrome, Firefox, Edge).
+https://github.com/mikelewis1971/Resident_Encoder
+Open the Tool: Simply download open index.html in any modern web browser (Chrome, Firefox, Edge).
 
 No Installation Required: Because the application is a standalone HTML/JavaScript file, it requires no backend server, database configuration, or internet connectivity to function.
 
