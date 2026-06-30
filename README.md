@@ -1,4 +1,5 @@
-Secure Identity Vault
+##Secure Identity Vault
+
 The Secure Identity Vault is a client-side, offline-first application designed for the secure processing and anonymization of sensitive resident data (PII). It allows organizations to handle high-stakes information like Social Security Numbers (SSN) and Dates of Birth (DOB) without exposing raw data to cloud environments or internet-connected databases.
 
 🎯 Purpose
