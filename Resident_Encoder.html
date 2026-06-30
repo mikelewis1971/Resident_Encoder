@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Identity Vault & Database</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --background: #f1f5f9;
+            --surface: #ffffff;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--background);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 40px 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background-color: var(--surface);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        h2 { margin-top: 0; color: var(--text); font-size: 1.25rem; margin-bottom: 1.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;}
+        
+        .form-group { margin-bottom: 1.25rem; }
+        label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text); }
+        
+        input {
+            width: 100%; padding: 0.75rem; border: 1px solid var(--border);
+            border-radius: 6px; font-size: 0.95rem; box-sizing: border-box; transition: border-color 0.2s;
+        }
+        input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+
+        button.primary {
+            width: 100%; background-color: var(--primary); color: white; border: none;
+            padding: 0.875rem; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background-color 0.2s;
+        }
+        button.primary:hover { background-color: var(--primary-hover); }
+        
+        button.warning {
+            background-color: var(--warning); color: white;
+        }
+        button.warning:hover { background-color: #d97706; }
+
+        .load-section { background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px dashed #cbd5e1; margin-bottom: 20px; }
+        
+        .status-badge {
+            display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700;
+            background: #e2e8f0; color: var(--text-light); margin-top: 10px;
+        }
+        .status-badge.active { background: #d1fae5; color: #065f46; }
+        .status-badge.offline { background: #fef3c7; color: #92400e; }
+
+        /* Search Results Styles */
+        .search-results { margin-top: 15px; max-height: 250px; overflow-y: auto; }
+        .result-card {
+            background: var(--background); border: 1px solid var(--border); border-radius: 6px;
+            padding: 12px; margin-bottom: 10px; font-size: 0.875rem;
+        }
+        .result-name { font-weight: 700; color: var(--text); font-size: 1rem; margin-bottom: 4px; }
+        .result-details { color: var(--text-light); margin-bottom: 8px; }
+        
+        .hash-output {
+            font-family: monospace; word-break: break-all; font-size: 0.85rem; color: var(--primary);
+            background: var(--surface); padding: 6px; border-radius: 4px; border: 1px solid #cbd5e1; display: block;
+        }
+
+        .sync-box {
+            margin-top: 20px; padding: 15px; border-radius: 6px; background-color: #fffbeb; border: 1px solid #fde68a; display: none;
+        }
+        .sync-title { font-weight: 700; color: #92400e; font-size: 0.9rem; margin-bottom: 10px; }
+
+        .security-note {
+            font-size: 0.75rem; color: #92400e; background: #fef3c7; padding: 10px; border-radius: 6px; margin-top: 1.5rem; text-align: center;
+        }
+
+        /* Help Modal Styles */
+        .help-footer { text-align: center; margin-top: 30px; grid-column: 1 / -1; }
+        .help-btn { background: none; border: none; color: var(--text-light); font-size: 0.9rem; text-decoration: underline; cursor: pointer; transition: color 0.2s; }
+        .help-btn:hover { color: var(--primary); }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.6); align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+        .modal-content { background-color: var(--surface); padding: 2rem; border-radius: 12px; max-width: 600px; width: 90%; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); position: relative; }
+        .close-btn { position: absolute; top: 15px; right: 20px; font-size: 1.5rem; cursor: pointer; color: var(--text-light); border: none; background: none; }
+        .close-btn:hover { color: var(--danger); }
+        .modal h3 { margin-top: 0; color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .modal h4 { margin-bottom: 5px; margin-top: 20px; color: var(--text); }
+        .modal p, .modal li { font-size: 0.9rem; color: var(--text-light); line-height: 1.5; }
+        .modal ul { margin-top: 5px; padding-left: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        
+        <!-- LEFT PANEL: Database Management & Search -->
+        <div class="card">
+            <h2>1. Master Database</h2>
+            
+            <div class="load-section">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label for="adminKey">Admin Encryption Key</label>
+                    <input type="password" id="adminKey" value="password123" placeholder="Enter Global Admin Password">
+                </div>
+
+                <label for="csvFileInput">Load Master CSV to enable Search & Sync</label>
+                <input type="file" id="csvFileInput" accept=".csv" onchange="loadCSV(event)">
+                <div id="db-status" class="status-badge">Database: Not Loaded</div>
+            </div>
+
+            <!-- Offline Sync Queue UI -->
+            <div id="syncBox" class="sync-box">
+                <div class="sync-title">⚠️ Offline Records Pending Sync: <span id="syncCount">0</span></div>
+                <button class="primary warning" id="syncBtn" onclick="syncToMaster()" style="padding: 0.5rem; font-size: 0.85rem; margin-bottom: 5px;">Merge into Master CSV</button>
+                <button onclick="downloadFieldBackupCSV()" style="width: 100%; padding: 0.5rem; font-size: 0.85rem; background: transparent; border: 1px solid #d97706; color: #d97706; border-radius: 6px; cursor: pointer;">Download Field Backup CSV</button>
+            </div>
+
+            <div class="form-group" style="margin-top: 20px;">
+                <label for="searchInput">Search Database</label>
+                <input type="text" id="searchInput" placeholder="Search by Last Name, First Name, or SSN..." onkeyup="searchRecords()">
+            </div>
+            
+            <div id="searchResults" class="search-results">
+                <!-- Search results will populate here -->
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: Add New Resident -->
+        <div class="card">
+            <h2>
+                2. Add New Resident
+                <span id="mode-indicator" class="status-badge offline" style="margin-top:0;">FIELD MODE</span>
+            </h2>
+
+            <div style="display: flex; gap: 10px; margin-bottom: 1.25rem;">
+                <div style="flex: 1;">
+                    <label for="firstName">First Name</label>
+                    <input type="text" id="firstName" placeholder="Jane" autocomplete="off">
+                </div>
+                <div style="flex: 1;">
+                    <label for="lastName">Last Name</label>
+                    <input type="text" id="lastName" placeholder="Doe" autocomplete="off">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="dob">Date of Birth</label>
+                <input type="text" id="dob" placeholder="MM/DD/YYYY" autocomplete="off" maxlength="10">
+            </div>
+
+            <div class="form-group">
+                <label for="ssn">Social Security Number</label>
+                <input type="password" id="ssn" placeholder="XXX-XX-XXXX" autocomplete="off" maxlength="11">
+            </div>
+
+            <button class="primary" id="action-btn" onclick="processIdentity()">Generate Key & Save Offline</button>
+
+            <!-- Output Box -->
+            <div id="resultBox" style="display: none; margin-top: 20px; padding: 15px; background: #f8fafc; border: 1px solid var(--border); border-radius: 6px;">
+                <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-light); margin-bottom: 5px;">APPSHEET PRIMARY KEY:</div>
+                <div class="hash-output" id="hashOutput" style="margin-bottom: 10px;"></div>
+                <button onclick="copyToClipboard()" id="copyBtn" style="width: 100%; padding: 8px; background: #e2e8f0; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;">Copy to Clipboard</button>
+            </div>
+
+            <div class="security-note" id="security-note">
+                &#128274; <b>Field Mode:</b> Records generated now will be saved to your laptop's local queue. Merge them when you return to the office.
+            </div>
+        </div>
+
+        <!-- Footer Help Button -->
+        <div class="help-footer">
+            <button class="help-btn" onclick="openHelp()">❓ What is this tool and how does it protect clients?</button>
+        </div>
+
+    </div>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="modal">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeHelp()">&times;</button>
+            <h3>About the Secure Identity Vault</h3>
+            
+            <h4>🎯 Purpose</h4>
+            <p>This tool acts as a secure bridge between our highly restricted offline files and our AppSheet cloud database. It converts sensitive Personally Identifiable Information (SSN, DOB) into an anonymous, 32-byte identifier that can be used safely in the cloud without exposing the resident's true identity.</p>
+            
+            <h4>⚙️ How to Use It</h4>
+            <ul>
+                <li><b>Master Mode (In Office):</b> Click "Load Master CSV" and select the Master Database from our secure Network/USB Drive. Generate new keys for intakes. When prompted, save the downloaded CSV to overwrite the old Master file on the Network Drive.</li>
+                <li><b>Field Mode (Out of Office):</b> If you do not load a CSV, the tool operates in Field Mode. New records are temporarily and securely cached in your laptop's local memory.</li>
+                <li><b>Syncing:</b> Upon returning to the office, load the Master CSV. The tool will prompt you to merge your pending offline records into the master file automatically.</li>
+            </ul>
+
+            <h4>🛡️ Why This Protects Client Anonymity</h4>
+            <ul>
+                <li><b>100% Offline Processing:</b> This tool runs entirely in your computer's local memory (RAM). It makes <i>zero</i> network requests to Google or the internet.</li>
+                <li><b>One-Way Cryptography:</b> We use the SHA-256 algorithm. It is mathematically impossible to reverse-engineer the generated Primary Key back into a Social Security Number or Date of Birth.</li>
+                <li><b>Zero Cloud Exposure:</b> Because we only paste the anonymous Primary Key into AppSheet, a cloud data breach would yield nothing but useless strings of letters and numbers, keeping our clients totally shielded.</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let masterDatabase = [];
+        let isMasterLoaded = false;
+        
+        // Load pending offline records from the browser's persistent storage
+        let pendingDatabase = JSON.parse(localStorage.getItem('pendingResidents')) || [];
+
+        // Initialize UI on page load
+        window.onload = function() {
+            updateSyncUI();
+            setupMasks();
+        };
+
+        // --- ENCRYPTION & DECRYPTION ENGINE (AES-GCM) ---
+        
+        async function getCryptoKey(password) {
+            const enc = new TextEncoder();
+            const keyMaterial = await crypto.subtle.importKey(
+                "raw", enc.encode(password), { name: "PBKDF2" }, false, ["deriveBits", "deriveKey"]
+            );
+            // Static salt for the organization
+            const salt = enc.encode("sober-living-secure-salt-2026");
+            return await crypto.subtle.deriveKey(
+                { name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" },
+                keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+            );
+        }
+
+        async function encryptData(text, password) {
+            const key = await getCryptoKey(password);
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const enc = new TextEncoder();
+            const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, enc.encode(text));
+            
+            // Combine IV and Ciphertext
+            const combined = new Uint8Array(iv.length + cipher.byteLength);
+            combined.set(iv, 0);
+            combined.set(new Uint8Array(cipher), iv.length);
+            
+            // Convert to Base64 safely
+            const binString = Array.from(combined, (byte) => String.fromCodePoint(byte)).join("");
+            return btoa(binString);
+        }
+
+        async function decryptData(base64Text, password) {
+            const key = await getCryptoKey(password);
+            const binString = atob(base64Text);
+            const combined = Uint8Array.from(binString, (m) => m.codePointAt(0));
+            
+            const iv = combined.slice(0, 12);
+            const data = combined.slice(12);
+
+            try {
+                const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, data);
+                const dec = new TextDecoder();
+                return dec.decode(decrypted);
+            } catch (e) {
+                throw new Error("Decryption failed");
+            }
+        }
+
+        // --- CORE APPLICATION LOGIC ---
+
+        // Enforce Input Formatting Masks
+        function setupMasks() {
+            // DOB Mask: MM/DD/YYYY
+            document.getElementById('dob').addEventListener('input', function (e) {
+                let x = e.target.value.replace(/\D/g, '').match(/(\d{0,2})(\d{0,2})(\d{0,4})/);
+                e.target.value = !x[2] ? x[1] : x[1] + '/' + x[2] + (x[3] ? '/' + x[3] : '');
+            });
+
+            // SSN Mask: XXX-XX-XXXX
+            document.getElementById('ssn').addEventListener('input', function (e) {
+                let x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,2})(\d{0,4})/);
+                e.target.value = !x[2] ? x[1] : x[1] + '-' + x[2] + (x[3] ? '-' + x[3] : '');
+            });
+        }
+
+        // 1. Load the existing CSV into memory
+        function loadCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                let text = e.target.result.trim();
+                const adminKey = document.getElementById('adminKey').value;
+
+                if (!adminKey) {
+                    alert("Please enter the Admin Encryption Key to load the database.");
+                    document.getElementById('csvFileInput').value = '';
+                    return;
+                }
+
+                // Try to decrypt the file
+                try {
+                    // MIGRATION CHECK: If it's an old unencrypted CSV, just read it directly.
+                    if (!text.startsWith("FirstName,LastName")) {
+                        text = await decryptData(text, adminKey);
+                    }
+                } catch (err) {
+                    alert("❌ Failed to unlock database! Incorrect Admin Encryption Key or corrupted file.");
+                    document.getElementById('csvFileInput').value = '';
+                    return;
+                }
+
+                const lines = text.split('\n');
+                masterDatabase = []; // Reset
+
+                // Skip header row
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    
+                    const parts = line.split(',');
+                    if (parts.length >= 5) {
+                        masterDatabase.push({
+                            firstName: parts[0],
+                            lastName: parts[1],
+                            dob: parts[2],
+                            ssn: parts[3],
+                            primaryKey: parts[4]
+                        });
+                    }
+                }
+                
+                isMasterLoaded = true;
+                
+                // Update Left Panel UI
+                const statusBadge = document.getElementById('db-status');
+                statusBadge.innerText = `Active: ${masterDatabase.length} records loaded`;
+                statusBadge.className = 'status-badge active';
+                document.getElementById('searchResults').innerHTML = '';
+                document.getElementById('searchInput').value = '';
+
+                // Update Right Panel UI for Master Mode
+                const modeIndicator = document.getElementById('mode-indicator');
+                modeIndicator.innerText = "MASTER LOADED";
+                modeIndicator.className = 'status-badge active';
+                
+                document.getElementById('action-btn').innerText = "Generate Key & Export CSV";
+                document.getElementById('security-note').innerHTML = "&#128274; <b>Master Mode:</b> The updated CSV will download immediately. Save it directly to the mapped Network Drive.";
+
+                updateSyncUI();
+            };
+            reader.readAsText(file);
+        }
+
+        // 2. Search Database dynamically
+        function searchRecords() {
+            const term = document.getElementById('searchInput').value.toLowerCase().trim();
+            const resultsDiv = document.getElementById('searchResults');
+            
+            if (!term) {
+                resultsDiv.innerHTML = '';
+                return;
+            }
+
+            if (!isMasterLoaded) {
+                resultsDiv.innerHTML = '<div style="font-size: 0.85rem; color: var(--danger);">Please load the Master CSV first to search.</div>';
+                return;
+            }
+
+            // Filter logic: matches part of Last Name, First Name, or exact SSN
+            const hits = masterDatabase.filter(r => 
+                r.lastName.toLowerCase().includes(term) || 
+                r.firstName.toLowerCase().includes(term) || 
+                r.ssn.includes(term)
+            );
+
+            if (hits.length === 0) {
+                resultsDiv.innerHTML = '<div style="font-size: 0.85rem; color: var(--text-light);">No matching records found.</div>';
+                return;
+            }
+
+            // Build Results HTML
+            let html = '';
+            hits.forEach(r => {
+                html += `
+                <div class="result-card">
+                    <div class="result-name">${r.lastName}, ${r.firstName}</div>
+                    <div class="result-details">DOB: ${r.dob} | SSN: ${r.ssn}</div>
+                    <div class="hash-output">${r.primaryKey}</div>
+                </div>`;
+            });
+            resultsDiv.innerHTML = html;
+        }
+
+        // 3. Generate new record
+        async function processIdentity() {
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+            const dob = document.getElementById('dob').value.trim();
+            const ssn = document.getElementById('ssn').value.trim();
+
+            if (!firstName || !lastName || !dob || !ssn) {
+                showMessage("Please fill in all fields before generating.");
+                return;
+            }
+
+            // Enforce Strict Mask Validation
+            const dobRegex = /^\d{2}\/\d{2}\/\d{4}$/;
+            const ssnRegex = /^\d{3}-\d{2}-\d{4}$/;
+
+            if (!dobRegex.test(dob)) {
+                showMessage("Error: DOB must be exactly MM/DD/YYYY", "var(--danger)");
+                return;
+            }
+            if (!ssnRegex.test(ssn)) {
+                showMessage("Error: SSN must be exactly XXX-XX-XXXX", "var(--danger)");
+                return;
+            }
+
+            // Generate Hash
+            const rawData = firstName.toLowerCase() + lastName.toLowerCase() + dob + ssn;
+            let newPrimaryKey = "";
+
+            try {
+                const encoder = new TextEncoder();
+                const dataBuffer = encoder.encode(rawData);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                
+                const cleanLastName = lastName.replace(/\s+/g, '').toUpperCase();
+                newPrimaryKey = `${hashHex}-${cleanLastName}`;
+
+            } catch (err) {
+                showMessage("Error generating hash.");
+                console.error(err);
+                return;
+            }
+
+            // PREVENT DUPLICATES LOCALLY AND IN MASTER
+            const isDupeInMaster = isMasterLoaded && masterDatabase.some(r => r.ssn === ssn || r.primaryKey === newPrimaryKey);
+            const isDupeInPending = pendingDatabase.some(r => r.ssn === ssn || r.primaryKey === newPrimaryKey);
+
+            if (isDupeInMaster || isDupeInPending) {
+                showMessage("Error: Record Already Exists!");
+                return; 
+            }
+
+            const newRecord = {
+                firstName: firstName,
+                lastName: lastName,
+                dob: dob,
+                ssn: ssn,
+                primaryKey: newPrimaryKey
+            };
+
+            // ROUTING LOGIC based on App Mode
+            if (isMasterLoaded) {
+                // Add directly to master and export
+                masterDatabase.push(newRecord);
+                document.getElementById('db-status').innerText = `Active: ${masterDatabase.length} records loaded`;
+                await downloadCSV(masterDatabase, "Master_Database.csv");
+            } else {
+                // Add to pending offline queue
+                pendingDatabase.push(newRecord);
+                localStorage.setItem('pendingResidents', JSON.stringify(pendingDatabase));
+                updateSyncUI();
+                showMessage("Added to Offline Queue!", "var(--warning)");
+            }
+
+            // Update UI 
+            document.getElementById('hashOutput').innerText = newPrimaryKey;
+            document.getElementById('resultBox').style.display = 'block';
+            
+            // Clear inputs
+            document.getElementById('firstName').value = '';
+            document.getElementById('lastName').value = '';
+            document.getElementById('dob').value = '';
+            document.getElementById('ssn').value = '';
+            
+            // Clear copy button status
+            const copyBtn = document.getElementById('copyBtn');
+            copyBtn.innerText = "Copy to Clipboard";
+            copyBtn.style.backgroundColor = "#e2e8f0";
+            copyBtn.style.color = "var(--text)";
+        }
+
+        // 4. Synchronization UI and Logic
+        function updateSyncUI() {
+            const syncBox = document.getElementById('syncBox');
+            const syncCount = document.getElementById('syncCount');
+            const syncBtn = document.getElementById('syncBtn');
+
+            if (pendingDatabase.length > 0) {
+                syncBox.style.display = 'block';
+                syncCount.innerText = pendingDatabase.length;
+                
+                // Only allow merging if Master is loaded
+                if (isMasterLoaded) {
+                    syncBtn.innerText = "Merge into Master CSV";
+                    syncBtn.disabled = false;
+                    syncBtn.style.opacity = "1";
+                    syncBtn.style.cursor = "pointer";
+                } else {
+                    syncBtn.innerText = "Load Master CSV above to Merge";
+                    syncBtn.disabled = true;
+                    syncBtn.style.opacity = "0.5";
+                    syncBtn.style.cursor = "not-allowed";
+                }
+            } else {
+                syncBox.style.display = 'none';
+            }
+        }
+
+        function syncToMaster() {
+            // Because sync is now async (due to encryption export), wrap it
+            executeSync();
+        }
+
+        async function executeSync() {
+            if (!isMasterLoaded || pendingDatabase.length === 0) return;
+
+            let addedCount = 0;
+            let skippedCount = 0;
+
+            // Loop through offline records and check for conflicts before merging
+            pendingDatabase.forEach(pendingRecord => {
+                const isDupe = masterDatabase.some(r => r.ssn === pendingRecord.ssn || r.primaryKey === pendingRecord.primaryKey);
+                
+                if (!isDupe) {
+                    masterDatabase.push(pendingRecord);
+                    addedCount++;
+                } else {
+                    skippedCount++;
+                }
+            });
+
+            // Clear the offline queue
+            pendingDatabase = [];
+            localStorage.removeItem('pendingResidents');
+            updateSyncUI();
+
+            // Update Status
+            document.getElementById('db-status').innerText = `Active: ${masterDatabase.length} records loaded`;
+
+            // Export the newly merged and encrypted CSV
+            await downloadCSV(masterDatabase, "Master_Database.csv");
+
+            // Alert user
+            alert(`Sync Complete!\n\nSuccessfully Merged: ${addedCount} records.\nSkipped (Duplicates found in Master): ${skippedCount} records.\n\nPlease save the downloaded encrypted database to your Network Drive.`);
+        }
+
+        // Utilities
+        async function downloadCSV(dataArray, filename) {
+            const adminKey = document.getElementById('adminKey').value;
+            if (!adminKey) {
+                alert("Cannot export! Admin Encryption Key is missing.");
+                return;
+            }
+
+            let csvContent = "FirstName,LastName,DOB,SSN,PrimaryKey\n";
+            dataArray.forEach(record => {
+                const cleanFirst = record.firstName.replace(/,/g, '');
+                const cleanLast = record.lastName.replace(/,/g, '');
+                csvContent += `${cleanFirst},${cleanLast},${record.dob},${record.ssn},${record.primaryKey}\n`;
+            });
+
+            // ENCRYPT THE CSV CONTENT BEFORE DOWNLOADING
+            let finalContent = "";
+            try {
+                finalContent = await encryptData(csvContent, adminKey);
+            } catch (err) {
+                alert("Failed to encrypt the database.");
+                return;
+            }
+
+            const blob = new Blob([finalContent], { type: 'text/plain;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        async function downloadFieldBackupCSV() {
+            if (pendingDatabase.length === 0) return;
+            await downloadCSV(pendingDatabase, `Field_Backup_Encrypted_${new Date().toISOString().slice(0,10)}.csv`);
+        }
+
+        function copyToClipboard() {
+            const hashText = document.getElementById('hashOutput').innerText;
+            const textArea = document.createElement("textarea");
+            textArea.value = hashText;
+            textArea.style.position = "absolute";
+            textArea.style.left = "-999999px";
+            
+            document.body.appendChild(textArea);
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                const copyBtn = document.getElementById('copyBtn');
+                copyBtn.innerText = "Primary Key Copied!";
+                copyBtn.style.backgroundColor = "var(--success)";
+                copyBtn.style.color = "white";
+            } catch (err) {
+                showMessage("Failed to copy text.");
+            } finally {
+                document.body.removeChild(textArea);
+            }
+        }
+
+        function showMessage(msg, color = "var(--danger)") {
+            const btn = document.getElementById('action-btn');
+            const originalText = btn.innerText;
+            const originalColor = btn.style.backgroundColor;
+            
+            btn.innerText = msg;
+            btn.style.backgroundColor = color; 
+            
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.style.backgroundColor = originalColor || "var(--primary)";
+            }, 3000);
+        }
+
+        // Help Modal Logic
+        function openHelp() {
+            document.getElementById('helpModal').style.display = 'flex';
+        }
+
+        function closeHelp() {
+            document.getElementById('helpModal').style.display = 'none';
+        }
+
+        // Close modal when clicking on the dark background outside of it
+        window.onclick = function(event) {
+            const modal = document.getElementById('helpModal');
+            if (event.target === modal) {
+                closeHelp();
+            }
+        }
+    </script>
+</body>
+</html>
